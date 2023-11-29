@@ -48,7 +48,6 @@ def get_pred(df_bonus,years):
   df_bonus = full_tab(df_bonus)
   df_bonus = df_bonus.assign(DNM= lambda x: (x['D(t)']) + x['NM(t)'])
 
-  print(df_bonus)
 
   Intb_sum=[sum_data(i+1, df_bonus['B(t)']) for i in range(len(df_bonus['B(t)']))]
   df_bonus = df_bonus.assign(IntB= Intb_sum)
