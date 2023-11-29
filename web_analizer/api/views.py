@@ -15,7 +15,6 @@ class SourceViewSet(viewsets.ModelViewSet):
     serializer_class = SourceSerializer
 
 
-
 class DemographyPredictionViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = DemographyPrediction.objects.all()
     serializer_class = DemographyPredictionSerializer
