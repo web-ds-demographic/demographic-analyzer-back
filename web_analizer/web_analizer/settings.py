@@ -25,7 +25,7 @@ SECRET_KEY = "django-insecure-rlo6=0+el2fxof+$ye*)_6xi^io*=hj*%n#*-50iz4o+gzudnt
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 
 # Application definition
@@ -37,6 +37,12 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # 'web_analizer.apps.WebAnalizerConfig'
+    'rest_framework',
+    'api',
+    'main',
+    'ds',
+    'web_analizer'
 ]
 
 MIDDLEWARE = [
