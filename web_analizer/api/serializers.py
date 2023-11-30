@@ -8,12 +8,17 @@ class RegionSerializer(serializers.ModelSerializer):
         model = Region
         fields = ['code', 'name']
 
+
 class SourceSerializer(serializers.ModelSerializer):
+    min_year = serializers.IntegerField(source='demography_entries__year__min', read_only=True)
+    max_year = serializers.IntegerField(source='demography_entries__year__max', read_only=True)
+
     class Meta:
         model = Source
-        fields = '__all__'
+        fields = ['name', 'region', 'min_year', 'max_year']
+
 
 class DemographyPredictionSerializer(serializers.ModelSerializer):
     class Meta:
-        model = DemographyEntry
+        model = DemographyPrediction
         fields = '__all__'

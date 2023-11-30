@@ -11,4 +11,5 @@ router.register(r'predictions', DemographyPredictionViewSet, basename='predictio
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('source/<int:pk>/', SourceViewSet.as_view({'get': 'retrieve'}), name='source-detail'),
 ]
