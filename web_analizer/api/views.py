@@ -1,13 +1,31 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 
-from main.models import Region, Source, DemographyPrediction
+from main.models import Region, Source, DemographyPrediction, DemographyEntry
 from .serializers import RegionSerializer, SourceSerializer, DemographyPredictionSerializer
 
 
 class RegionViewSet(viewsets.ModelViewSet):
     queryset = Region.objects.all()
     serializer_class = RegionSerializer
+
+    def list(self, request, *args, **kwargs):
+        regions = Region.objects.all()
+        serialized_regions = RegionSerializer(regions, many=True).data
+
+        result = []
+        for serialized_region in serialized_regions:
+            region_code = serialized_region['code']
+            region_name = serialized_region['name']
+            sources = ["local", "worldstat", "rosstat"]
+
+            result.append({
+                "code": region_code,
+                "name": region_name,
+                "sources": sources
+            })
+
+        return Response(result)
 
 
 class SourceViewSet(viewsets.ModelViewSet):
@@ -16,7 +34,7 @@ class SourceViewSet(viewsets.ModelViewSet):
 
 
 class DemographyPredictionViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = DemographyPrediction.objects.all()
+    queryset = DemographyEntry.objects.all()
     serializer_class = DemographyPredictionSerializer
 
     def post(self, request, *args, **kwargs):
