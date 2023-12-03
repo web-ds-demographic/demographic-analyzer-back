@@ -1,35 +1,32 @@
+import os
+import pandas as pd
 from django.db import models
 from rest_framework import viewsets, status
 from rest_framework.response import Response
+from rest_framework.decorators import action
 
+from main.demography_manager import DemographyManager
 from main.models import Region, Source, DemographyPrediction, DemographyEntry
-from .serializers import RegionSerializer, SourceSerializer, DemographyPredictionSerializer
+from .serializers import RegionSerializer, SourceSerializer, DemographyPredictionSerializer, DemographyEntrySerializer
+from main import settings
 
 
 class RegionViewSet(viewsets.ModelViewSet):
     queryset = Region.objects.all()
     serializer_class = RegionSerializer
 
-    def list(self, request, *args, **kwargs):
-        regions = Region.objects.all()
-        serialized_regions = RegionSerializer(regions, many=True).data
+    def list(self, request):
+        demography_manager = DemographyManager()
+        regions = demography_manager.get_regions()
 
-        result = []
-        for serialized_region in serialized_regions:
-            region_code = serialized_region['code']
-            region_name = serialized_region['name']
-            sources = Source.objects.filter(
-                region__code=region_code).values_list(
-                    'name', flat=True
-                )
-
-            result.append({
-                "code": region_code,
-                "name": region_name,
-                "sources": sources
+        data = []
+        for region in regions:
+            data.append({
+                'code': region.code,
+                'name': region.name,
+                'sources': region.sources
             })
-
-        return Response(result)
+        return Response(data)
 
 
 class SourceViewSet(viewsets.ModelViewSet):
@@ -43,7 +40,7 @@ class SourceViewSet(viewsets.ModelViewSet):
         source_name = self.request.query_params.get('source')
         
         if region_code and source_name:
-            demography_entries = DemographyEntry.objects.filter(region=region_code, source=source_name)
+            demography_entries = DemographyEntry.objects.filter(region__region_code=region_code, source__source_name=source_name)
             
             min_year = demography_entries.aggregate(min_year=models.Min('year'))['min_year']
             max_year = demography_entries.aggregate(max_year=models.Max('year'))['max_year']
@@ -56,13 +53,18 @@ class SourceViewSet(viewsets.ModelViewSet):
             return Response(data)
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
+        
+
+class DemographyEntryViewSet(viewsets.ModelViewSet):
+    pass
 
 
 class DemographyPredictionViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = DemographyPrediction.objects.all()
     serializer_class = DemographyPredictionSerializer
 
-    def post(self, request, *args, **kwargs):
+    def create(self, request, *args, **kwargs):
+        demography_manager = DemographyManager()
         region = request.data.get('region')
         source = request.data.get('source')
         inputDataPeriod = request.data.get('inputDataPeriod')
@@ -73,9 +75,21 @@ class DemographyPredictionViewSet(viewsets.ReadOnlyModelViewSet):
         start_year = int(inputDataPeriod.get('start'))
         end_year = int(inputDataPeriod.get('end'))
 
-        predictions = DemographyPrediction.objects.filter(region=region, source=source,
-                                                          start__year__gte=start_year, end__year__lte=end_year)
+        demography_data = demography_manager._get_data(region, source, inputDataPeriod)
 
-        data = self.get_serializer(predictions, many=True).data
+        missing_years = [year for year in range(start_year, end_year+1) if year not in demography_data.index]
 
-        return Response(data)
+        if missing_years:
+            for year in missing_years:
+                data = demography_manager._get_and_cache_data(region, source, year)
+                DemographyPrediction.objects.create(region=region, source=source, year=year, prediction=data)
+
+        file_path = os.path.join(settings.AppSettings, f"{region}__{source}.csv")
+        if os.path.exists(file_path):
+            df = pd.read_csv(file_path)
+
+        demography_data = DemographyPrediction.objects.filter(region=region, source=source,
+                                                          year__gte=start_year, year__lte=end_year)
+
+        serializer = self.get_serializer(demography_data, many=True)
+        return Response(serializer.data)

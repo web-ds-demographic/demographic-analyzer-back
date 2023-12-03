@@ -1,7 +1,8 @@
 from datetime import date
 from dataclasses import dataclass
 
-from typing import Self, Generator, Iterable
+from typing import Generator, Iterable
+from typing_extensions import Self
 
 
 @dataclass
