@@ -1,6 +1,10 @@
 from rest_framework import serializers
+from django.db.models import TextChoices
 
-from main.models import Region, Source, DemographyPrediction, DemographyEntry
+from main.models import Region, Source, DemographyEntry
+from main.demography_manager import DemographyManager
+
+demography_manager = DemographyManager()
 
 
 class DemographyEntrySerializer(serializers.ModelSerializer):
@@ -19,15 +23,6 @@ class DemographyEntrySerializer(serializers.ModelSerializer):
             region.save()
         return region
     
-    # def validate_source(self, value):
-    #     source_name = value.upper()
-    #     try:
-    #         source = Source.objects.get(source_name=source_name)
-    #     except Source.DoesNotExist:
-    #         source = Source(source_name=source_name)
-    #         source.save()
-    #     return source
-    
     def create(self, validated_data):
         region = validated_data.pop('region')
         demography_entry = DemographyEntry.objects.create(region=region, **validated_data)
@@ -41,15 +36,26 @@ class RegionSerializer(serializers.ModelSerializer):
 
 
 class SourceSerializer(serializers.ModelSerializer):
-    min_year = serializers.IntegerField(source='demography_entries__year__min', read_only=True)
-    max_year = serializers.IntegerField(source='demography_entries__year__max', read_only=True)
+    region = RegionSerializer()
 
     class Meta:
         model = Source
-        fields = ['source_name', 'region', 'min_year', 'max_year']
+        fields = ['source_name', 'region']
 
 
-class DemographyPredictionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = DemographyPrediction
-        fields = '__all__'
+class InputDataPeriodSerializer(serializers.Serializer):
+    start = serializers.DateField()
+    end = serializers.DateField()
+
+
+class SourceChoice(TextChoices):
+    LOCAL = 'local'
+    WORLDBANK = 'worldbank'
+
+
+class DemographyPredictionSerializer(serializers.Serializer):
+    region = serializers.CharField(max_length=2)
+    source = serializers.ChoiceField(choices=SourceChoice.choices)
+    predict_years_count = serializers.IntegerField()
+    inputDataPeriod = InputDataPeriodSerializer()
+    

@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    'drf_spectacular',
     # 'web_analizer.apps.WebAnalizerConfig'
     'rest_framework',
     'api',
@@ -99,6 +100,43 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",},
 ]
 
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'web_anlizer',
+    'DESCRIPTION': 'API description',
+    'VERSION': '1.0.0',
+    # 'SCHEMA_PATH_PREFIX': '/api/v[0-9]',
+    # 'SERVE_PERMISSIONS': ['rest_framework.permissions.IsAdminUser'],
+    # 'SERVE_AUTHENTICATION': ['rest_framework.authentication.SessionAuthentication'],
+    'SWAGGER_UI_SETTINGS': {
+        'tryItOutEnabled': True,
+        'displayRequestDuration': True,
+        "persistAuthorization": True,
+        'filter': True,
+    },
+    'APPEND_COMPONENTS': {
+        'securitySchemes': {
+            'Authorization': {
+                'type': 'apiKey',
+                'in': 'header',
+                'name': 'Authorization',
+                'description': 'Bearer jwt token',
+            },
+            'Language': {
+                'type': 'apiKey',
+                'in': 'header',
+                'name': 'Accept-Language',
+                'description': 'Authorization by Token',
+            },
+        },
+    },
+    'SECURITY': [
+        {'Authorization': [], 'Language': []},
+    ],
+}
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/

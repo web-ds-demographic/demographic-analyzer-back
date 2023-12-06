@@ -2,7 +2,7 @@ from django.db import models
 
 
 class Region(models.Model):
-    region_code = models.CharField(max_length=8)
+    region_code = models.CharField(max_length=2, unique=True)
     region_name = models.CharField(max_length=128)
 
     def __str__(self):
@@ -10,8 +10,8 @@ class Region(models.Model):
 
 
 class Source(models.Model):
-    source_name = models.CharField(max_length=32)
-    region = models.ForeignKey(Region, on_delete=models.CASCADE)
+    source_name = models.CharField(max_length=32, unique=True)
+    region = models.ManyToManyField(Region)
 
     def __str__(self):
         return self.source_name

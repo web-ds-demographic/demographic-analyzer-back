@@ -1,4 +1,5 @@
 import pandas as pd
+import json
 
 import main.constants as const
 import main.providers.demography_providers as demography_providers
@@ -56,8 +57,8 @@ class DemographyManager:
         cache_provider = self._db_cache_providers.get(source.lower())
         provider = self._providers.get(source.lower())
 
-        cached_period = cache_provider.get_availible_period(region) if cache_provider is not None else None
-        period = provider.get_availible_period(region) if provider is not None else None
+        cached_period = cache_provider.get_availible_period(region=region) if cache_provider is not None else None
+        period = provider.get_availible_period(region=region) if provider is not None else None
 
         if period is None:
             return cached_period
@@ -70,6 +71,9 @@ class DemographyManager:
         data = data.reset_index()
         data[const.DATAFRAME_INDEX_COLUMN] = data[const.DATAFRAME_INDEX_COLUMN].dt.year
         return get_pred(data.reset_index(), predict_years_count)
+    
+    def pd_data_to_json(self, dataframe: pd.DataFrame) -> list:
+        return json.loads(dataframe.to_json(orient='records'))
 
     def _get_data(self, region: str, source: str, period: TimePeriod | None) -> pd.DataFrame | None:
         if source.lower() not in self._db_cache_providers:

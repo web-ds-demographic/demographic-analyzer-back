@@ -1,14 +1,15 @@
 import os
 import pandas as pd
-from django.db import models
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.decorators import action
+from rest_framework.generics import GenericAPIView
 
 from main.demography_manager import DemographyManager
-from main.models import Region, Source, DemographyPrediction, DemographyEntry
-from .serializers import RegionSerializer, SourceSerializer, DemographyPredictionSerializer, DemographyEntrySerializer
-from main import settings
+from main.core_models import TimePeriod
+from main.models import Region, Source
+from .serializers import RegionSerializer, SourceSerializer, DemographyPredictionSerializer
+
+demography_manager = DemographyManager()
 
 
 class RegionViewSet(viewsets.ModelViewSet):
@@ -16,11 +17,11 @@ class RegionViewSet(viewsets.ModelViewSet):
     serializer_class = RegionSerializer
 
     def list(self, request):
-        demography_manager = DemographyManager()
         regions = demography_manager.get_regions()
 
         data = []
         for region in regions:
+            Region.objects.get_or_create(region_code=region.code, region_name=region.name)
             data.append({
                 'code': region.code,
                 'name': region.name,
@@ -33,63 +34,74 @@ class SourceViewSet(viewsets.ModelViewSet):
     queryset = Source.objects.all()
     serializer_class = SourceSerializer
 
-    def retrieve(self, request, *args, **kwargs):
-        """при запросе на api/source/<pk>/?region=<region_code>&source=<source_name> 
-        возвращает min max year"""
-        region_code = self.request.query_params.get('region')
-        source_name = self.request.query_params.get('source')
-        
-        if region_code and source_name:
-            demography_entries = DemographyEntry.objects.filter(region__region_code=region_code, source__source_name=source_name)
-            
-            min_year = demography_entries.aggregate(min_year=models.Min('year'))['min_year']
-            max_year = demography_entries.aggregate(max_year=models.Max('year'))['max_year']
+    def list(self, request):
+        """выводит список ресурсов"""
+        regions = demography_manager.get_regions()
+        sources_dict = {}
+
+        for region in regions:
+            region_obj, created = Region.objects.get_or_create(
+                region_code=region.code,
+                defaults={'region_name': region.name},
+            )
+
+            for source_name in region.sources:
+                if source_name not in sources_dict:
+                    sources_dict[source_name] = []
+                sources_dict[source_name].append(region_obj)
+
+        for source_name, regions in sources_dict.items():
+            source_obj, created = Source.objects.get_or_create(
+                source_name=source_name,
+            )
+            source_obj.region.set(regions)
+
+        data = [{'source_name': source, 'regions': [region.region_code for region in regions]} for source, regions in sources_dict.items()]
+        return Response(data)
     
-            data = {
-                'min': min_year.strftime('%Y') if min_year else 'N/A',
-                'max': max_year.strftime('%Y') if max_year else 'N/A'
-            }
-    
-            return Response(data)
-        else:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+    def retrieve(
+            self, 
+            request,
+            region_code,
+            source_name
+    ):
+        """На запрос api/source/<region_code>/<source_name>/ 
+        возвращет min max данных в источнике"""
+        print(f'{region_code=}')
+
+        if not region_code or not source_name:
+            raise ValueError('Region code and source name required')
         
+        
+        available_period = demography_manager.get_availible_period(region=region_code, source=source_name)
+        if available_period is None:
+            return Response({
+                'error': f'No available period found for the given {region_code} and {source_name}'
+            }, status=404)
+        return Response({
+            'min': available_period.start,
+            'max': available_period.end  
+        })
+    
+    
 
-class DemographyEntryViewSet(viewsets.ModelViewSet):
-    pass
-
-
-class DemographyPredictionViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = DemographyPrediction.objects.all()
+class DemographyPredictionView(GenericAPIView):
     serializer_class = DemographyPredictionSerializer
 
-    def create(self, request, *args, **kwargs):
-        demography_manager = DemographyManager()
-        region = request.data.get('region')
-        source = request.data.get('source')
-        inputDataPeriod = request.data.get('inputDataPeriod')
-
-        if not all([region, source, inputDataPeriod]):
-            return Response("Missing required data", status=status.HTTP_400_BAD_REQUEST)
-
-        start_year = int(inputDataPeriod.get('start'))
-        end_year = int(inputDataPeriod.get('end'))
-
-        demography_data = demography_manager._get_data(region, source, inputDataPeriod)
-
-        missing_years = [year for year in range(start_year, end_year+1) if year not in demography_data.index]
-
-        if missing_years:
-            for year in missing_years:
-                data = demography_manager._get_and_cache_data(region, source, year)
-                DemographyPrediction.objects.create(region=region, source=source, year=year, prediction=data)
-
-        file_path = os.path.join(settings.AppSettings, f"{region}__{source}.csv")
-        if os.path.exists(file_path):
-            df = pd.read_csv(file_path)
-
-        demography_data = DemographyPrediction.objects.filter(region=region, source=source,
-                                                          year__gte=start_year, year__lte=end_year)
-
-        serializer = self.get_serializer(demography_data, many=True)
-        return Response(serializer.data)
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        pred_method = demography_manager.predict(
+            region=serializer.validated_data['region'],
+            source=serializer.validated_data['source'],
+            predict_years_count=serializer.validated_data['predict_years_count'],
+            input_period=TimePeriod(
+                start=serializer.validated_data['inputDataPeriod']['start'],
+                end=serializer.validated_data['inputDataPeriod']['end'],
+            )
+        )
+        if pred_method is None:
+            return Response({'detail': 'no data'}, status=404)
+        data = demography_manager.pd_data_to_json(pred_method)
+        return Response(data)
