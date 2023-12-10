@@ -9,4 +9,4 @@ class AppSettings:
         RegionBase(code="ru", name="Российская Федерация")
     ]
 
-    REGIONS_DICT: dict[str, list[RegionBase]] = { region.code.lower(): region for region in REGIONS}
+    REGIONS_DICT: dict[str, RegionBase] = { region.code.lower(): region for region in REGIONS}

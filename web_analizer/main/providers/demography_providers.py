@@ -1,7 +1,7 @@
 import pandas as pd
 from django.db.models import Min, Max
 from abc import ABC, abstractmethod
-import world_bank_data as wp
+import world_bank_data as wb
 
 import main.constants as const
 from main.models import DemographyEntry
@@ -68,10 +68,10 @@ class WorldBankProvider(BaseProvider):
     _INDEX_COLUMN = "Year"
 
     def get_data(self, region: str, period: TimePeriod | None) -> pd.DataFrame | None:
-        total_population = wp.get_series(self._TOTAL_POPULATION_INDICATOR_CODE, country=region)
-        crude_birth_rate = wp.get_series(self._CRUDE_BIRTH_RATE_INDICATOR_CODE, country=region)
-        crude_death_rate = wp.get_series(self._CRUDE_DEATH_RATE_INDICATOR_CODE, country=region)
-        migration = -wp.get_series(self._NET_MIGRATION_INDICATOR_CODE, country=region)
+        total_population = wb.get_series(self._TOTAL_POPULATION_INDICATOR_CODE, country=region)
+        crude_birth_rate = wb.get_series(self._CRUDE_BIRTH_RATE_INDICATOR_CODE, country=region)
+        crude_death_rate = wb.get_series(self._CRUDE_DEATH_RATE_INDICATOR_CODE, country=region)
+        migration = -wb.get_series(self._NET_MIGRATION_INDICATOR_CODE, country=region)
 
         result = pd.merge(total_population, crude_birth_rate, on=self._INDEX_COLUMN)
         result = pd.merge(result, crude_death_rate, on=self._INDEX_COLUMN)
