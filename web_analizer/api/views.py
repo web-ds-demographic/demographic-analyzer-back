@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from rest_framework import viewsets, status
+from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.generics import GenericAPIView
 
