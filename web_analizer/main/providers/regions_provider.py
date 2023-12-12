@@ -36,5 +36,5 @@ class RegionsProvider:
         if invariant_region_code in AppSettings.REGIONS_DICT:
             return AppSettings.REGIONS_DICT[invariant_region_code]
         if invariant_region_code in region_name_by_code_map:
-            return region_name_by_code_map[invariant_region_code]
+            return RegionBase(region_code, region_name_by_code_map[invariant_region_code])
         return RegionBase(region_code, region_code)
